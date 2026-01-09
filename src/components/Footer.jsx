@@ -1,6 +1,71 @@
+import { useState } from "react";
 import { Mail, Phone, MapPin, CreditCard } from "lucide-react";
 
+const FORMSPREE_ENDPOINT = "https://formspree.io/f/xjggbbdv";
+
 export default function Footer() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("idle"); // idle | loading | success | error
+  const [message, setMessage] = useState("");
+
+  const isValidEmail = (value) => {
+    // simple + reliable enough for UI validation
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  };
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+
+    const trimmed = email.trim();
+
+    if (!trimmed) {
+      setStatus("error");
+      setMessage("Please enter your email address.");
+      return;
+    }
+
+    if (!isValidEmail(trimmed)) {
+      setStatus("error");
+      setMessage("Please enter a valid email address.");
+      return;
+    }
+
+    try {
+      setStatus("loading");
+      setMessage("");
+
+      const res = await fetch(FORMSPREE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          email: trimmed,
+          source: "Quix Travel Footer Newsletter",
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.ok) {
+        setStatus("success");
+        setMessage("You’re in! Weekly deals will land in your inbox ✨");
+        setEmail("");
+      } else {
+        // Formspree usually returns { errors: [{ message: "..." }] }
+        const apiMsg =
+          data?.errors?.[0]?.message ||
+          "Something went wrong. Please try again.";
+        setStatus("error");
+        setMessage(apiMsg);
+      }
+    } catch (err) {
+      setStatus("error");
+      setMessage("Network error. Please try again.");
+    }
+  };
+
   return (
     <footer className="bg-neutral-950 text-neutral-200">
       <div className="mx-auto max-w-7xl px-4 py-16">
@@ -88,16 +153,44 @@ export default function Footer() {
               Get weekly deals and travel inspiration delivered to your inbox.
             </p>
 
-            <div className="mt-5 flex flex-col sm:flex-row gap-2">
+            <form
+              onSubmit={handleSubscribe}
+              className="mt-5 flex flex-col sm:flex-row gap-2"
+            >
               <input
                 type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (status !== "idle") {
+                    setStatus("idle");
+                    setMessage("");
+                  }
+                }}
                 placeholder="Email address"
+                autoComplete="email"
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-neutral-500 outline-none focus:border-amber-500"
               />
-              <button className="w-full sm:w-auto rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-600 transition">
-                Join
+
+              <button
+                type="submit"
+                disabled={status === "loading"}
+                className="w-full sm:w-auto rounded-xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white hover:bg-amber-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {status === "loading" ? "Joining..." : "Join"}
               </button>
-            </div>
+            </form>
+
+            {/* Status message */}
+            {message ? (
+              <p
+                className={`mt-3 text-sm ${
+                  status === "success" ? "text-emerald-400" : "text-rose-400"
+                }`}
+              >
+                {message}
+              </p>
+            ) : null}
 
             <div className="mt-6 flex items-center gap-2 text-sm text-neutral-400">
               <CreditCard className="h-4 w-4" />
